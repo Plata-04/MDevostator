@@ -1,4 +1,5 @@
 
+from msilib.schema import Directory
 from PyQt5 import QtWidgets, uic, QtGui
 from PyQt5.QtCore import QTimer, QEventLoop
 from PyQt5.QtWidgets import QMessageBox
@@ -41,17 +42,18 @@ class Ui(QtWidgets.QMainWindow):
         super(Ui, self).__init__()
         uic.loadUi(resource_path('untitled.ui'), self)
         self.show()
-        self.start.clicked.connect(self.Start)
         self.load()
-        print(os.listdir("result"))
+        self.start.clicked.connect(self.Start)
+        self.open_.clicked.connect(self.open)
 
     def Start(self):
-        if self.textblack.toPlainText() and self.textURL.toPlainText():
-            global URLS, black_list, sleep, kof, prog_bar
+        if self.textURL.toPlainText():
+            global URLS, black_list, sleep, kof, prog_bar, data
 
             URLS = self.textURL.toPlainText().split("\n")
             URLS = list(filter(None, URLS))
 
+            data = []
             prog_bar = 0
             kof = 100/len(URLS)
 
@@ -68,13 +70,18 @@ class Ui(QtWidgets.QMainWindow):
             self.pars()
             self.csv_writer()
 
+
             self.textURL.setDisabled(False)
             self.textblack.setDisabled(False)
             self.spinBox.setDisabled(False)   
 
-            print(kof) 
      
+    def open(self):
+        directory = "result"
 
+        if not os.path.isdir("result"):
+            os.mkdir("result")
+        os.system(f'start {directory}')
 
     def load(self):
         if os.path.isfile("blacklist.txt"):
@@ -94,26 +101,29 @@ class Ui(QtWidgets.QMainWindow):
 
     def str_time(self): #название файла м-д-ч-м-с
         named_tuple = time.localtime() # получить struct_time
-        time_string = time.strftime("%m-%d-%H-%M- %S", named_tuple)
+        time_string = time.strftime("%m-%d-%H-%M-%S", named_tuple)
         return time_string  
 
     def pars(self):
         global post_id, title, URL, URLS, sleep, kof, prog_bar
         for url in URLS:
-            URL = url
-            response = requests.get(url)
-            soup = BeautifulSoup(response.text, 'lxml')
-            title = re.sub(r'[^\w\s]','', soup.select('h1.entry-title')[0].text.strip()).lower()
-            post_id = re.sub('[^0-9]', '', soup.find("article").get("id"))
-            self.black_lister()
-            self.csv_data()
-            print(url)
-            prog_bar = prog_bar + kof
-            self.progressBar.setValue(int(prog_bar))
-            if sleep:
-                loop = QEventLoop()
-                QTimer.singleShot(sleep, loop.quit)
-                loop.exec_()
+            try:
+                URL = url
+                response = requests.get(url)
+                soup = BeautifulSoup(response.text, 'lxml')
+                title = re.sub(r'[^\w\s]','', soup.select('h1.entry-title')[0].text.strip()).lower()
+                post_id = re.sub('[^0-9]', '', soup.find("article").get("id"))
+                self.black_lister()
+                self.csv_data()
+                prog_bar = prog_bar + kof
+                self.progressBar.setValue(int(prog_bar))
+                if sleep:
+                    loop = QEventLoop()
+                    QTimer.singleShot(sleep, loop.quit)
+                    loop.exec_()
+            except: 
+                prog_bar = prog_bar + kof
+                continue
             
 
             
@@ -138,7 +148,8 @@ class Ui(QtWidgets.QMainWindow):
         global data
         if not os.path.isdir("result"):
             os.mkdir("result")
-        with open(f"result\\{str(self.str_time())}.csv", 'w', newline='', encoding="utf_8") as csvfile:
+        name = str(self.str_time())
+        with open(f"result\\{name}.csv", 'w', newline='', encoding="utf_8") as csvfile:
             writer = csv.writer(csvfile, quotechar='"', delimiter = ";", dialect='unix')
             for row in data:
                 writer.writerow(row)
